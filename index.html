@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MARIA_ACOSTA_CAMARA</title>
+<style>
+  body {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    font-family: 'Roboto', sans-serif;
+    margin: 25px;
+    text-align: center;
+  }
+  .contenedor {
+    max-width: 750px;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #2a2a2a;
+    padding: 20px;
+    border-radius: 12px;
+  }
+  h1 {
+    color: #38b6ff;
+    margin-bottom: 15px;
+  }
+  video, canvas {
+    width: 100%;
+    max-width: 680px;
+    border-radius: 8px;
+    background-color: #000;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+  button {
+    background-color: #38b6ff;
+    border: none;
+    padding: 12px 18px;
+    margin: 8px;
+    border-radius: 6px;
+    color: #1a1a1a;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  button:disabled {
+    background-color: #555;
+    cursor: default;
+    color: #888;
+  }
+  button:hover:not(:disabled) {
+    background-color: #2a9de0;
+  }
+  .instrucciones {
+    margin-top: 25px;
+    font-size: 0.95rem;
+    color: #bbb;
+  }
+</style>
+</head>
+<body>
+  <div class="contenedor">
+    <h1>CAMARA por Voz</h1>
+    <p>Di en voz alta "foto" !</p>
+    <video id="videoStream" autoplay playsinline></video>
+    <canvas id="lienzo"></canvas>
+    <div>
+      <button id="btnIniciar">Activar Cámara</utton>
+      <button id="btnCapturar" disabled>Fotografiaar</button>
+      <button id="btnGuardar" disabled>Descargar </button>
+    </div>
+    <div class="instrucciones">
+      <p>Es necesario acceso a cámara y micrófono. Di "foto"!</p>
+    </div>
+  </div>
+
+<script>
+  const videoStream = document.getElementById('videoStream');
+  const lienzo = document.getElementById('lienzo');
+  const btnIniciar = document.getElementById('btnIniciar');
+  const btnCapturar = document.getElementById('btnCapturar');
+  const btnGuardar = document.getElementById('btnGuardar');
+
+  let flujoMedios = null;
+  let reconocimientoVoz = null;
+  let escuchandoActivo = false;
+
+  btnIniciar.addEventListener('click', () => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => {
+          flujoMedios = stream;
+          videoStream.srcObject = stream;
+          btnIniciar.disabled = true;
+          btnCapturar.disabled = false;
+          iniciarReconocimiento();
+        })
+        .catch(error => {
+          alert('No se pudo acceder a la cámara: ' + error.message);
+        });
+    } else {
+      alert('Tu navegador no soporta acceso a dispositivos multimedia');
+    }
+  });
+
+  function iniciarReconocimiento() {
+    const ReconocimientoVoz = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!ReconocimientoVoz) {
+      alert('El reconocimiento de voz no está disponible en este navegador');
+      return;
+    }
+    
+    reconocimientoVoz = new ReconocimientoVoz();
+    reconocimientoVoz.lang = 'es-ES';
+    reconocimientoVoz.continuous = true;
+    reconocimientoVoz.interimResults = false;
+
+    reconocimientoVoz.onresult = (evento) => {
+      const ultimo = evento.results.length - 1;
+      const texto = evento.results[ultimo][0].transcript.trim().toLowerCase();
+      if (texto === 'foto') {
+        capturarFoto();
+      }
+    };
+    
+    reconocimientoVoz.onerror = () => {};
+    
+    reconocimientoVoz.onend = () => {
+      if (escuchandoActivo) reconocimientoVoz.start();
+    };
+    
+    reconocimientoVoz.start();
+    escuchandoActivo = true;
+  }
+
+  function capturarFoto() {
+    if (!flujoMedios) return;
+    lienzo.width = videoStream.videoWidth;
+    lienzo.height = videoStream.videoHeight;
+    const contexto = lienzo.getContext('2d');
+    contexto.drawImage(videoStream, 0, 0, lienzo.width, lienzo.height);
+    btnGuardar.disabled = false;
+  }
+
+  btnCapturar.addEventListener('click', capturarFoto);
+
+  btnGuardar.addEventListener('click', () => {
+    if (!lienzo.width) return;
+    const enlace = document.createElement('a');
+    enlace.href = lienzo.toDataURL('image/png');
+    enlace.download = 'captura_por_voz.png';
+    enlace.click();
+  });
+</script>
+</body>
+</html>
